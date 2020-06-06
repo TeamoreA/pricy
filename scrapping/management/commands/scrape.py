@@ -66,6 +66,7 @@ class Command(BaseCommand):
         driver = webdriver.Chrome("/home/tim/Downloads/chromedriver")
         driver.get("https://www.kilimall.co.ke/new/")
         search_items = [
+            "food",
             "shoes",
             "clothes",
             "electronics",
@@ -77,7 +78,6 @@ class Command(BaseCommand):
             "fashion",
             "bags",
             "health",
-            "food",
             "beauty",
         ]
         for search_item in search_items:
@@ -87,50 +87,71 @@ class Command(BaseCommand):
             search.send_keys(search_item)
             search.send_keys(Keys.ENTER)
             time.sleep(3)
-            try:
-                products = search.find_elements_by_xpath(
-                    '//*[@id="__layout"]/section/main/div/div[2]/section/\
-                        section/section/main/div/div/div[@class=\
-                            "el-col el-col-6"]'
-                )
-            except TimeoutException:
-                print("Timed out waiting for page to load")
-
-            for product in products:
-                # loop through all the product elements
+            # try:
+            #     products = search.find_elements_by_xpath(
+            #         '//*[@id="__layout"]/section/main/div/div[2]/section/\
+            #             section/section/main/div/div/div[@class=\
+            #                 "el-col el-col-6"]'
+            #     )
+            # except TimeoutException:
+            #     print("Timed out waiting for page to load")
+            pages = search.find_element_by_xpath(
+                '//*[@id="__layout"]/section/main/div/div[2]/section/section/div[3]/div/ul'
+            )
+            page = pages.find_elements_by_class_name("number")
+            num_of_pages = int(page[-1].text)
+            num = 0
+            while num < num_of_pages:
                 try:
-                    link = product.find_element_by_tag_name("a")
-                    url = link.get_attribute("href")
-                    name = product.find_element_by_class_name("wordwrap").text
-                    raw_offer_price = product.find_element_by_class_name(
-                        "wordwrap-price"
-                    ).text
-                    raw_price = product.find_element_by_class_name("twoksh").text
-                    offer_price = float(raw_offer_price.split()[1].replace(",", ""))
-                    price = (
-                        float(raw_price.split()[1].replace(",", "")) if raw_price else 0
+                    products = search.find_elements_by_xpath(
+                        '//*[@id="__layout"]/section/main/div/div[2]/section/\
+                            section/section/main/div/div/div[@class=\
+                                "el-col el-col-6"]'
                     )
-                    raw_rating = product.find_element_by_xpath(
-                        '//*[@id="__layout"]/section/main/div/div[2]/section/section/\
-                            section/main/div/div/div[1]/div/div[2]/div/div[1]/\
-                                div/div[@class="el-rate rateList"]'
-                    )
-                    rating = (
-                        float(raw_rating.get_attribute("aria-valuenow"))
-                        if raw_rating
-                        else 0
-                    )
-                    pdt = Product(
-                        url=url,
-                        product_name=name,
-                        price=price,
-                        offer_price=offer_price,
-                        rating=rating,
-                    )
-                    pdt.save()
-                    print("%s added successfully" % (name,))
-                except BaseException:
-                    print("Error while adding")
+                except TimeoutException:
+                    print("Timed out waiting for page to load")
+                for product in products:
+                    # loop through all the product elements
+                    try:
+                        link = product.find_element_by_tag_name("a")
+                        url = link.get_attribute("href")
+                        name = product.find_element_by_class_name("wordwrap").text
+                        raw_offer_price = product.find_element_by_class_name(
+                            "wordwrap-price"
+                        ).text
+                        raw_price = product.find_element_by_class_name("twoksh").text
+                        offer_price = float(raw_offer_price.split()[1].replace(",", ""))
+                        price = (
+                            float(raw_price.split()[1].replace(",", ""))
+                            if raw_price
+                            else 0
+                        )
+                        raw_rating = product.find_element_by_xpath(
+                            '//*[@id="__layout"]/section/main/div/div[2]/section/section/\
+                                section/main/div/div/div[1]/div/div[2]/div/div[1]/\
+                                    div/div[@class="el-rate rateList"]'
+                        )
+                        rating = (
+                            float(raw_rating.get_attribute("aria-valuenow"))
+                            if raw_rating
+                            else 0
+                        )
+                        pdt = Product(
+                            url=url,
+                            product_name=name,
+                            price=price,
+                            offer_price=offer_price,
+                            rating=rating,
+                        )
+                        pdt.save()
+                        print("%s added successfully" % (name,))
+                    except BaseException:
+                        print("Error while adding")
+                search.find_element_by_xpath(
+                    '//*[@id="__layout"]/section/main/div/div[2]/section/section/div[3]/div/button[2]'
+                ).click()
+                time.sleep(3)
+                num += 1
 
         # quit browser session
         driver.quit()
