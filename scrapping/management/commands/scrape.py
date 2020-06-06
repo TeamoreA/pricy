@@ -1,49 +1,19 @@
-from django.core.management.base import BaseCommand
-
+import time
 import urllib
-from urllib.request import urlopen
+
 from bs4 import BeautifulSoup
-import json
-import requests
-from scrapping.models import  Product
-from scrapping.models import  Category
+from django.core.management.base import BaseCommand
+from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.keys import Keys
+
+from scrapping.models import Category
+from scrapping.models import Product
 
 
 class AppURLopener(urllib.request.FancyURLopener):
     version = "Mozilla/5.0"
 
-def get_from_killimall():
-    # scrape killimall
-    opener = AppURLopener()
-    html = opener.open('https://www.kilimall.co.ke/new/commoditysearch?c=1057&aside=Phones%20%26%20Accessories&gc_id=1057')
-    # convert to soup
-    soup = BeautifulSoup(html, 'html.parser')
-    import pdb; pdb.set_trace()
-    # get all products
-    products = soup.find_all("div", class_="grid-content bg-purple clearfix")
-    for product in products:
-        # saving in the db
-        try:
-            import pdb; pdb.set_trace()
-            url = product.find('a', class_="link")['href']
-            product_name = product.find('span', class_="name").text
-            raw_rating = product.find('div', class_="total-ratings").text
-            rating = int(raw_rating.replace('(', '').replace(')', '')) if raw_rating else 0
-            raw_price = product.find('span', class_="price -old")
-            raw_offer_price = product.find('span', class_="price")
-            price = float(raw_price.getText().split('\n')[0].split()[1].replace(",", "")) if raw_price else 0
-            offer_price = float(raw_offer_price.getText().split('\n')[0].split()[1].replace(",", "")) if raw_offer_price else 0
-        Product.objects.create(
-                url=url,
-                product_name=product_name,
-                price=price,
-                offer_price=offer_price,
-                rating=rating,
-                category_id=cat.id
-            )
-            print('%s added succesfully' % (product_name,))
-        except:
-            print('%s error while adding' % (product_name,))
 
 def get_from_jumia():
     # get all categories
@@ -51,82 +21,117 @@ def get_from_jumia():
     for cat in cats:
         # html source
         opener = AppURLopener()
-        html = opener.open('https://www.jumia.co.ke/%s/' % (cat.name,))
+        html = opener.open("https://www.jumia.co.ke/%s/" % (cat.name,))
         # convert to soup
-        soup = BeautifulSoup(html, 'html.parser')
+        soup = BeautifulSoup(html, "html.parser")
         # get all products
-        products = soup.find_all("div", class_="-gallery")
+        products = soup.find_all("article", class_="prd _fb col c-prd")
         for product in products:
             # saving in the db
             try:
-                url = product.find('a', class_="link")['href']
-                product_name = product.find('span', class_="name").text
-                raw_rating = product.find('div', class_="total-ratings").text
-                rating = int(raw_rating.replace('(', '').replace(')', '')) if raw_rating else 0
-                raw_price = product.find('span', class_="price -old")
-                raw_offer_price = product.find('span', class_="price")
-                price = float(raw_price.getText().split('\n')[0].split()[1].replace(",", "")) if raw_price else 0
-                offer_price = float(raw_offer_price.getText().split('\n')[0].split()[1].replace(",", "")) if raw_offer_price else 0
+                url = (
+                    "https://www.jumia.co.ke" + product.find("a", class_="core")["href"]
+                )
+                product_name = product.find("h3", class_="name").text
+                raw_rating = product.find("div", class_="stars _s").text
+                rating = float(raw_rating.split()[0]) if raw_rating else 0
+                raw_price = product.find("div", class_="old").text
+                raw_offer_price = product.find("div", class_="prc").text
+                price = float(raw_price.split()[1]) if raw_price else 0
+                offer_price = (
+                    float(raw_offer_price.split()[1]) if raw_offer_price else 0
+                )
                 Product.objects.create(
                     url=url,
                     product_name=product_name,
                     price=price,
                     offer_price=offer_price,
                     rating=rating,
-                    category_id=cat.id
+                    category_id=cat.id,
                 )
-                print('%s added succesfully' % (product_name,))
-            except:
-                print('%s error while adding' % (product_name,))
-
+                print("%s added succesfully" % (product_name,))
+            except BaseException:
+                print("%s error while adding" % (product_name,))
 
 
 class Command(BaseCommand):
     help = "collect products"
     # define collect products logic command
     def handle(self, *args, **kwargs):
-        # try:
-        #     get_from_jumia()
-        #     print('scrapping for jumia completed successfully')
-        # except:
-        #     pass
-        try:
-            get_from_killimall()
-            print('scrapping for killimall completed successfully')
-        except:
-            pass
 
-        # # get all categories
-        # cats = Category.objects.all()
-        # for cat in cats:
-        #     # html source
-        #     opener = AppURLopener()
-        #     html = opener.open('https://www.jumia.co.ke/%s/' % (cat.name,))
-        #     # convert to soup
-        #     soup = BeautifulSoup(html, 'html.parser')
-        #     # get all products
-        #     products = soup.find_all("div", class_="-gallery")
-        #     for product in products:
-        #         # saving in the db
-        #         try:
-        #             url = product.find('a', class_="link")['href']
-        #             product_name = product.find('span', class_="name").text
-        #             raw_rating = product.find('div', class_="total-ratings").text
-        #             rating = int(raw_rating.replace('(', '').replace(')', '')) if raw_rating else 0
-        #             raw_price = product.find('span', class_="price -old")
-        #             raw_offer_price = product.find('span', class_="price")
-        #             price = float(raw_price.getText().split('\n')[0].split()[1].replace(",", "")) if raw_price else 0
-        #             offer_price = float(raw_offer_price.getText().split('\n')[0].split()[1].replace(",", "")) if raw_offer_price else 0
-        #             Product.objects.create(
-        #                 url=url,
-        #                 product_name=product_name,
-        #                 price=price,
-        #                 offer_price=offer_price,
-        #                 rating=rating,
-        #                 category_id=cat.id
-        #             )
-        #             print('%s added succesfully' % (product_name,))
-        #         except:
-        #             print('%s error while adding' % (product_name,))
+        """
+        method to scrap data from kilimall
+        """
+        # initialize chrome webdriver
+        driver = webdriver.Chrome("/home/tim/Downloads/chromedriver")
+        driver.get("https://www.kilimall.co.ke/new/")
+        search_items = [
+            "shoes",
+            "clothes",
+            "electronics",
+            "phones",
+            "furniture",
+            "music",
+            "tvs",
+            "alchohol",
+            "fashion",
+            "bags",
+            "health",
+            "food",
+            "beauty",
+        ]
+        for search_item in search_items:
+            # loop through all search items
+            search = driver.find_element_by_class_name("el-input__inner")
+            search.clear()
+            search.send_keys(search_item)
+            search.send_keys(Keys.ENTER)
+            time.sleep(3)
+            try:
+                products = search.find_elements_by_xpath(
+                    '//*[@id="__layout"]/section/main/div/div[2]/section/\
+                        section/section/main/div/div/div[@class=\
+                            "el-col el-col-6"]'
+                )
+            except TimeoutException:
+                print("Timed out waiting for page to load")
 
-        self.stdout.write( 'job completed' )
+            for product in products:
+                # loop through all the product elements
+                try:
+                    link = product.find_element_by_tag_name("a")
+                    url = link.get_attribute("href")
+                    name = product.find_element_by_class_name("wordwrap").text
+                    raw_offer_price = product.find_element_by_class_name(
+                        "wordwrap-price"
+                    ).text
+                    raw_price = product.find_element_by_class_name("twoksh").text
+                    offer_price = float(raw_offer_price.split()[1].replace(",", ""))
+                    price = (
+                        float(raw_price.split()[1].replace(",", "")) if raw_price else 0
+                    )
+                    raw_rating = product.find_element_by_xpath(
+                        '//*[@id="__layout"]/section/main/div/div[2]/section/section/\
+                            section/main/div/div/div[1]/div/div[2]/div/div[1]/\
+                                div/div[@class="el-rate rateList"]'
+                    )
+                    rating = (
+                        float(raw_rating.get_attribute("aria-valuenow"))
+                        if raw_rating
+                        else 0
+                    )
+                    pdt = Product(
+                        url=url,
+                        product_name=name,
+                        price=price,
+                        offer_price=offer_price,
+                        rating=rating,
+                    )
+                    pdt.save()
+                    print("%s added successfully" % (name,))
+                except BaseException:
+                    print("Error while adding")
+
+        # quit browser session
+        driver.quit()
+        self.stdout.write("job completed")
